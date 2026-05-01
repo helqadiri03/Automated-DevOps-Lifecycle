@@ -1,0 +1,33 @@
+name: Deploy n8n Workflow
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'test.json'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Debug host
+        env:
+          N8N_HOST: ${{ secrets.N8N_PROD_HOST }}
+        run: |
+          echo "N8N_HOST=[$N8N_HOST]"
+
+      - name: Deploy to n8n
+        env:
+          N8N_HOST: ${{ secrets.N8N_PROD_HOST }}
+          N8N_API_KEY: ${{ secrets.N8N_PROD_API_KEY }}
+        run: |
+          curl -X POST "$N8N_HOST/api/v1/workflows" \
+            -H "Content-Type: application/json" \
+            -H "X-N8N-API-KEY: $N8N_API_KEY" \
+            --data-binary @test.json
+
