@@ -86,10 +86,16 @@ graph TD
 ---
 
 ## 📈 DevOps Features
-- **CI/CD**: Fully automated pipeline using GitHub Actions.
+- **CI/CD**: Fully automated pipeline using GitHub Actions (Linting + Deployment).
 - **Scalability**: Each service can be scaled independently.
 - **Resilience**: Implements retry logic and Dead Letter Queues for fault tolerance.
 - **Observability**: Structured logging and service health monitoring.
+- **Automation Tooling**: Included `Makefile` for simplified environment management.
+
+### Makefile Commands
+- `make up`: Start all services.
+- `make logs`: View real-time logs.
+- `make clean`: Deep clean the environment (volumes and images).
 
 ---
 
