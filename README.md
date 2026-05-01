@@ -13,6 +13,19 @@ The system allows users to create and manage tasks through a REST API, with back
 ## 🏗️ Architecture
 The system consists of several decoupled services communicating asynchronously:
 
+```mermaid
+graph TD
+    Client[Client/User] -->|HTTP POST/GET| Web[Web API - Flask]
+    Web -->|Store| DB[(PostgreSQL)]
+    Web -->|Publish| MQ{RabbitMQ - task_events}
+    
+    MQ -->|Subscribe: task.created| Worker[Worker - Processor]
+    MQ -->|Subscribe: task.completed| Notifier[Notifier - Webhooks]
+    MQ -->|DLX| EH[Error Handler]
+    
+    Notifier -->|POST| External[External Webhook/n8n]
+```
+
 - **Web API (Flask)**: The entry point for task management.
 - **Worker (Python)**: Asynchronous task processor.
 - **Notifier (Python)**: Event-driven notification service using webhooks.
