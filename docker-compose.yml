@@ -1,0 +1,122 @@
+services:
+  # Servicio de la API Web (Flask)
+  web:
+    build: ./web
+    restart: always
+    container_name: task-manager-web
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./web:/app # Montaje para desarrollo en vivo
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - db
+      - mq
+
+  # Servicio del Trabajador Asíncrono (Consumer)
+  worker:
+    build: ./worker
+    restart: always
+    container_name: task-manager-worker
+    volumes:
+      - ./worker:/app # Montaje para desarrollo en vivo
+    environment:
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mq
+
+  # Servicio de Notificaciones
+  notifier:
+    build: ./notifier
+    restart: always
+    container_name: task-manager-notifier
+    volumes:
+      - ./notifier:/app
+    environment:
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mq
+
+  # Servicio de Manejo de Errores (DLQ Consumer)
+  error_handler:
+    build: ./error_handler
+    restart: always
+    container_name: task-manager-error-handler
+    volumes:
+      - ./error_handler:/app
+    environment:
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mq
+  # Servicio n8n para automatización
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      # Variables PostgreSQL
+      - DB_HOST=db
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASS=${POSTGRES_PASSWORD}
+      - DB_PORT=5432
+      # Variables RabbitMQ
+      - RABBITMQ_HOST=mq
+      - RABBITMQ_USER=guest
+      - RABBITMQ_PASS=guest
+      - RABBITMQ_PORT=5672
+      # Configuration n8n
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      # Variables héritées du .env (pour compatibilité)
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    depends_on:
+      - db
+      - mq
+
+  # Servicio de la Base de Datos
+  db:
+    image: postgres:14-alpine
+    container_name: task-manager-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5433:5432" # Exponer para depuración externa
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Servicio del Bróker de Mensajes
+  mq:
+    image: rabbitmq:3-management-alpine
+    container_name: task-manager-mq
+    ports:
+      - "5672:5672" # Puerto para la comunicación AMQP
+      - "15672:15672" # Puerto para la interfaz de gestión web
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  n8n_data:
